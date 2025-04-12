@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
+from typing import Optional
 from models_pelicula import modelPelicula, modelAuth
-from genToken import createToken
+from genToken import createToken, validateToken
 from fastapi.responses import JSONResponse
-
+from middlewares import BearerJWT
 
 app= FastAPI(
     title="Mi primer API",
@@ -18,15 +19,34 @@ peliculas =[
     {"Titulo": "Intensamente", "Genero": "Animación", "Año": 2015, "Clasificación": "A"}
 ]
 
+async def token(authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Token no proporcionado")
+    try:
+        token = authorization.split(" ")[1]  
+        data = validateToken(token)
+        return data
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+@app.post('/auth', tags=['Autentificacion'])
+def crear_token(credenciales: modelAuth):
+    if credenciales.mail == 'elileon27@example.com' and credenciales.passw == '123456789':
+        token: str = createToken(credenciales.model_dump())
+        return {"token de acceso": token}
+    raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+
+
 #Guardar Peliculas
 @app.post('/pelicula', response_model=modelPelicula, tags=['Peliculas'])
 def guardar(pelicula:modelPelicula):
     for peli in peliculas:
         if peli["Titulo"]== pelicula.Titulo:
             raise  HTTPException(status_code=400,detail="Esta pelicula ya existe")
-    
-    peliculas.append(pelicula)
-    return pelicula
+    pelicula_dict = pelicula.dict()
+    peliculas.append(pelicula_dict)
+    return pelicula_dict
 
 #Editar Peliculas
 @app.put('/pelicula/{Titulo}',response_model=modelPelicula, tags=['Peliculas'])
@@ -39,13 +59,14 @@ def actualizar(Titulo:str,peliculaActualizada:modelPelicula):
 
 
 #Eliminar Peliculas
-@app.delete('/pelicula/{Titulo}', tags=['Peliculas'])
-def eliminar(Titulo:str):
-    for index,  peli in enumerate(peliculas):
-        if peli["Titulo"] == Titulo:
-            return peliculas.pop(index)
-    raise HTTPException(status_code=400,detail="Esta pelicula no se puede borrar")
-
+@app.delete("/pelicula/{Titulo}", tags=['Peliculas'])
+async def eliminar(Titulo: str, token_data: dict = Depends(BearerJWT())):
+    for index, peli in enumerate(peliculas):
+        if isinstance(peli, dict) and "Titulo" in peli:
+            if peli["Titulo"].lower() == Titulo.lower():
+                peliculas.pop(index)
+                return {'Peliculas Registradas': peliculas}
+    raise HTTPException(status_code=404, detail="Película no encontrada")
 
 #Buscar pelicula 
 @app.get('/pelicula/{Titulo}', tags=['Peliculas'])
@@ -59,13 +80,3 @@ def buscar(Titulo:str):
 @app.get('/pelicula', tags=['Peliculas'])
 def leer():
     return {'Peliculas Registradas' : peliculas}
-
-
-@app.delete('/pelicula',tags=['Peliculas'])
-def eliminar(credenciales:modelAuth):
-    if credenciales.mail == 'elileon27@example.com' and credenciales.passw == '123456789':
-        token: str= createToken(credenciales.model_dump())
-        print(token)
-        return JSONResponse(content= token)
-    else:
-        return {"Aviso":"Usuario no cuenta con permiso"}
