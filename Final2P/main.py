@@ -55,7 +55,7 @@ def actualizar(Titulo:str,peliculaActualizada:modelPelicula):
         if peli ["Titulo"] == Titulo:
             peliculas[index].update(peliculaActualizada.model_dump())
             return peliculas[index]
-    raise HTTPException(status_code=400,detail="Tarea no encontrada")
+    raise HTTPException(status_code=400,detail="Pelicula no encontrada")
 
 
 #Eliminar Peliculas
