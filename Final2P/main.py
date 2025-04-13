@@ -53,7 +53,7 @@ def guardar(pelicula:modelPelicula):
 def actualizar(Titulo:str,peliculaActualizada:modelPelicula):
     for index,  peli in enumerate(peliculas):
         if peli ["Titulo"] == Titulo:
-            peliculas[index].update(peliculaActualizada)
+            peliculas[index].update(peliculaActualizada.model_dump())
             return peliculas[index]
     raise HTTPException(status_code=400,detail="Tarea no encontrada")
 
